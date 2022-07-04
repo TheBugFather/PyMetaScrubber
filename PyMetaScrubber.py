@@ -45,7 +45,7 @@ def main():
                   ' put data to be scrubbed in it and restart')
         sys.exit(1)
 
-    print(f'Scrubbing images in {IMAGE_DIR}:\n{"*" * (21 + (len(IMAGE_DIR)))}\n')
+    print(f'\nScrubbing images in {IMAGE_DIR}:\n{"*" * (21 + (len(IMAGE_DIR)))}\n')
 
     # Iterate through the files in the images scrubber dir #
     for image_file in os.scandir(IMAGE_DIR):
