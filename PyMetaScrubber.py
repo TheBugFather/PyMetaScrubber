@@ -66,7 +66,7 @@ def main():
             with open(image_file, 'wb') as out_file:
                 out_file.write(meta_file.get_file())
 
-            print(f'Item  =>  {image_file}')
+            print(f'Item  =>  {image_file.name}')
 
         # If file IO error occurs #
         except (AttributeError, KeyError, IOError, Warning):
