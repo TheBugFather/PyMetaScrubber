@@ -6,8 +6,14 @@ from warnings import filterwarnings
 # External modules #
 from exif import Image
 
-# Pseudo-constants #
-IMAGE_DIR = 'DataScrubDock'
+# Current working directory #
+cwd = os.getcwd()
+# Windows scrub dock directory $
+if os.name == 'nt':
+    IMAGE_DIR = f'{cwd}\\DataScrubDock\\'
+# Linux scrub dock directory $
+else:
+    IMAGE_DIR = f'{cwd}/DataScrubDock/'
 
 
 """
@@ -42,7 +48,7 @@ def main():
         # Create the image scrubber dir #
         os.mkdir(IMAGE_DIR)
         PrintErr(f'Unable to run program because {IMAGE_DIR} was missing,'
-                  ' put data to be scrubbed in it and restart')
+                 ' put data to be scrubbed in it and restart')
         sys.exit(1)
 
     print(f'\nScrubbing images in {IMAGE_DIR}:\n{"*" * (21 + (len(IMAGE_DIR)))}\n')
@@ -50,20 +56,20 @@ def main():
     # Iterate through the files in the images scrubber dir #
     for image_file in os.scandir(IMAGE_DIR):
         # If the current item is dir or the dummy file for git tracking #
-        if os.path.isdir(image_file) or image_file == '.keep.txt':
+        if os.path.isdir(f'{IMAGE_DIR}{image_file.name}') or image_file.name == '.keep.txt':
             # Skip to the next item #
             continue
 
         try:
             # Read the data of the file to be scrubbed #
-            with open(image_file, 'rb') as in_file:
+            with open(f'{IMAGE_DIR}{image_file.name}', 'rb') as in_file:
                 meta_file = Image(in_file)
 
             # Delete all metadata #
             meta_file.delete_all()
 
             # Overwrite file with scrubbed data #
-            with open(image_file, 'wb') as out_file:
+            with open(f'{IMAGE_DIR}{image_file.name}', 'wb') as out_file:
                 out_file.write(meta_file.get_file())
 
             print(f'Item  =>  {image_file.name}')

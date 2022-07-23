@@ -1,3 +1,10 @@
+# Pycharm files #
 .idea/
+
+# vevn files #
+venv/
+
+# DataScrubDock files #
 DataScrubDock/*
-!DataScrubDock/.keep.txt
+# Except .keep file #
+!DataScrubDock/.keep
