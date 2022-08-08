@@ -1,10 +1,11 @@
-# Built-in modules #
+# pylint: disable=W0106
+""" Built-in modules """
 import os
 import sys
 from warnings import filterwarnings
-
 # External modules #
 from exif import Image
+
 
 # Current working directory #
 cwd = os.getcwd()
@@ -16,28 +17,23 @@ else:
     IMAGE_DIR = f'{cwd}/DataScrubDock/'
 
 
-"""
-########################################################################################################################
-Name:       PrintErr
-Purpose:    Displays passed in error message via stderr.
-Parameters: The error message to be displayed via stderr.
-Returns:    Nothing
-########################################################################################################################
-"""
-def PrintErr(msg: str):
+def print_err(msg: str):
+    """
+    Displays passed in error message via stderr.
+
+    :param msg:  The error message to be displayed.
+    :return:  Nothing
+    """
     print(f'\n* [ERROR] {msg} *\n', file=sys.stderr)
 
 
-"""
-########################################################################################################################
-Name:       main
-Purpose:    Checks for scrub directory to load images and scrub metadata. Failures are appended to list to be \
-            displayed when the program finishes. 
-Parameters: Nothing
-Returns:    Nothing
-########################################################################################################################
-"""
 def main():
+    """
+    Checks for scrub directory to load images and scrub metadata. Failures are appended to list to \
+    be displayed when the program finishes.
+
+    :return:  Nothing
+    """
     # List for files that fail meta-scrubbing #
     failures = []
     # Ignore benign exif warnings #
@@ -47,7 +43,7 @@ def main():
     if not os.path.isdir(IMAGE_DIR):
         # Create the image scrubber dir #
         os.mkdir(IMAGE_DIR)
-        PrintErr(f'Unable to run program because {IMAGE_DIR} was missing,'
+        print_err(f'Unable to run program because {IMAGE_DIR} was missing,'
                  ' put data to be scrubbed in it and restart')
         sys.exit(1)
 
@@ -75,11 +71,13 @@ def main():
             print(f'Item  =>  {image_file.name}')
 
         # If file IO error occurs #
-        except (AttributeError, KeyError, IOError, Warning):
-            # If error suggests failed scrub #
-            if not KeyError:
-                # Append failed item to list #
-                failures.append(image_file.name)
+        except (AttributeError, IOError, Warning):
+            # Append failed item to list #
+            failures.append(image_file.name)
+
+        # If obscure keys were unable to be scrubbed #
+        except KeyError:
+            pass
 
     # If there files that failed to be scrubbed #
     if failures:
