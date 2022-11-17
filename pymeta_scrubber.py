@@ -5,16 +5,74 @@ import sys
 from warnings import filterwarnings
 # External modules #
 from exif import Image
+from pdfrw import PdfParseError, PdfReader, PdfWriter
 
 
 # Current working directory #
 cwd = os.getcwd()
-# Windows scrub dock directory $
+# Windows scrub dock directory #
 if os.name == 'nt':
-    IMAGE_DIR = f'{cwd}\\DataScrubDock\\'
+    SCRUB_DIR = f'{cwd}\\DataScrubDock\\'
 # Linux scrub dock directory $
 else:
-    IMAGE_DIR = f'{cwd}/DataScrubDock/'
+    SCRUB_DIR = f'{cwd}/DataScrubDock/'
+
+
+def pdf_scrub(pdf_file) -> bool:
+    """
+    Scrubs the metadata from the passed in PDF file name.
+
+    :param pdf_file:  The PDF file whose metadata is to be scrubbed.
+    :return:  Boolean True/False on success/fail.
+    """
+    try:
+        # Read the PDF file data #
+        pdf = PdfReader(f'{SCRUB_DIR}{pdf_file}')
+
+        # Iterate through PDF file metadata and delete it #
+        for metadata in pdf.Info:
+            del pdf.Info[metadata]
+
+        # Re-write the scrubbed PDF data back to file #
+        PdfWriter(f'{SCRUB_DIR}{pdf_file}', trailer=pdf).write()
+
+    except PdfParseError as pdf_err:
+        # Print error and return false #
+        print_err(f'Error occurred attempting to scrub PDF metadata: {pdf_err}')
+        return False
+
+    return True
+
+def pic_scrub(img_file) -> bool:
+    """
+    Scrubs the metadata from the passed in image file name.
+
+    :param img_file:  The image file whose metadata is to be deleted.
+    :return:  Boolean True/False on success/fail.
+    """
+    try:
+        # Read the data of the file to be scrubbed #
+        with open(f'{SCRUB_DIR}{img_file.name}', 'rb') as in_file:
+            meta_file = Image(in_file)
+
+        # Delete all metadata #
+        meta_file.delete_all()
+
+        # Overwrite file with scrubbed data #
+        with open(f'{SCRUB_DIR}{img_file.name}', 'wb') as out_file:
+            out_file.write(meta_file.get_file())
+
+    # If file IO error occurs #
+    except (AttributeError, IOError, Warning) as file_err:
+        # Print error and return false #
+        print_err(f'Error occurred attempting to scrub image metadata: {file_err}')
+        return False
+
+    # If obscure keys were unable to be scrubbed #
+    except KeyError:
+        pass
+
+    return True
 
 
 def print_err(msg: str):
@@ -36,48 +94,39 @@ def main():
     """
     # List for files that fail meta-scrubbing #
     failures = []
+    # Tuple grouping of picture file extensions #
+    pic_ext = ('.png', '.jpg', '.jpeg', '.bmp')
     # Ignore benign exif warnings #
     filterwarnings('ignore')
 
     # If the image scrubber dir does not exist #
-    if not os.path.isdir(IMAGE_DIR):
+    if not os.path.isdir(SCRUB_DIR):
         # Create the image scrubber dir #
-        os.mkdir(IMAGE_DIR)
-        print_err(f'Unable to run program because {IMAGE_DIR} was missing,'
+        os.mkdir(SCRUB_DIR)
+        print_err(f'Unable to run program because {SCRUB_DIR} was missing,'
                  ' put data to be scrubbed in it and restart')
         sys.exit(1)
 
-    print(f'\nScrubbing images in {IMAGE_DIR}:\n{"*" * (21 + (len(IMAGE_DIR)))}\n')
+    print(f'\nScrubbing images in {SCRUB_DIR}:\n{"*" * (21 + (len(SCRUB_DIR)))}\n')
 
     # Iterate through the files in the images scrubber dir #
-    for image_file in os.scandir(IMAGE_DIR):
+    for file in os.scandir(SCRUB_DIR):
         # If the current item is dir or the dummy file for git tracking #
-        if os.path.isdir(f'{IMAGE_DIR}{image_file.name}') or image_file.name == '.keep.txt':
+        if os.path.isdir(f'{SCRUB_DIR}{file.name}') or file.name == '.keep.txt':
             # Skip to the next item #
             continue
 
-        try:
-            # Read the data of the file to be scrubbed #
-            with open(f'{IMAGE_DIR}{image_file.name}', 'rb') as in_file:
-                meta_file = Image(in_file)
+        # If the file is a PDF #
+        if file.name.endswith('.pdf'):
+            pdf_scrub(file.name)
+        # If the file is a image #
+        elif file.name.endswith(pic_ext):
+            pic_scrub(file.name)
+        # If file is not a format that has metadata #
+        else:
+            continue
 
-            # Delete all metadata #
-            meta_file.delete_all()
-
-            # Overwrite file with scrubbed data #
-            with open(f'{IMAGE_DIR}{image_file.name}', 'wb') as out_file:
-                out_file.write(meta_file.get_file())
-
-            print(f'Item  =>  {image_file.name}')
-
-        # If file IO error occurs #
-        except (AttributeError, IOError, Warning):
-            # Append failed item to list #
-            failures.append(image_file.name)
-
-        # If obscure keys were unable to be scrubbed #
-        except KeyError:
-            pass
+        print(f'Item  =>  {file.name}')
 
     # If there files that failed to be scrubbed #
     if failures:
