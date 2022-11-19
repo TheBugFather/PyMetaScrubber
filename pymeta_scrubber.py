@@ -118,10 +118,14 @@ def main():
 
         # If the file is a PDF #
         if file.name.endswith('.pdf'):
-            pdf_scrub(file.name)
+            # If scrubbing the PDF metadata failed #
+            if not pdf_scrub(file.name):
+                continue
         # If the file is a image #
         elif file.name.endswith(pic_ext):
-            pic_scrub(file.name)
+            # If scrubbing the PDF metadata failed #
+            if not pic_scrub(file.name):
+                continue
         # If file is not a format that has metadata #
         else:
             continue
