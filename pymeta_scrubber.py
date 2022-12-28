@@ -1,7 +1,8 @@
-# pylint: disable=W0106
+# pylint: disable=W0106,E0401
 """ Built-in modules """
 import os
 import sys
+from pathlib import Path
 from warnings import filterwarnings
 # External modules #
 from exif import Image
@@ -9,16 +10,12 @@ from pdfrw import PdfParseError, PdfReader, PdfWriter
 
 
 # Current working directory #
-cwd = os.getcwd()
+cwd = Path('.')
 # Windows scrub dock directory #
-if os.name == 'nt':
-    SCRUB_DIR = f'{cwd}\\DataScrubDock\\'
-# Linux scrub dock directory $
-else:
-    SCRUB_DIR = f'{cwd}/DataScrubDock/'
+SCRUB_DIR = cwd / 'DataScrubDock'
 
 
-def pdf_scrub(pdf_file) -> bool:
+def pdf_scrub(pdf_file: Path) -> bool:
     """
     Scrubs the metadata from the passed in PDF file name.
 
@@ -27,14 +24,14 @@ def pdf_scrub(pdf_file) -> bool:
     """
     try:
         # Read the PDF file data #
-        pdf = PdfReader(f'{SCRUB_DIR}{pdf_file}')
+        pdf = PdfReader(str(pdf_file.resolve()))
 
         # Iterate through PDF file metadata and delete it #
         for metadata in pdf.Info:
             del pdf.Info[metadata]
 
         # Re-write the scrubbed PDF data back to file #
-        PdfWriter(f'{SCRUB_DIR}{pdf_file}', trailer=pdf).write()
+        PdfWriter(str(pdf_file.resolve()), trailer=pdf).write()
 
     except PdfParseError as pdf_err:
         # Print error and return false #
@@ -43,7 +40,7 @@ def pdf_scrub(pdf_file) -> bool:
 
     return True
 
-def pic_scrub(img_file) -> bool:
+def pic_scrub(img_file: Path) -> bool:
     """
     Scrubs the metadata from the passed in image file name.
 
@@ -52,17 +49,17 @@ def pic_scrub(img_file) -> bool:
     """
     try:
         # Read the data of the file to be scrubbed #
-        with open(f'{SCRUB_DIR}{img_file.name}', 'rb') as in_file:
+        with img_file.open('rb') as in_file:
             meta_file = Image(in_file)
 
         # Delete all metadata #
         meta_file.delete_all()
 
         # Overwrite file with scrubbed data #
-        with open(f'{SCRUB_DIR}{img_file.name}', 'wb') as out_file:
+        with img_file.open('wb') as out_file:
             out_file.write(meta_file.get_file())
 
-    # If file IO error occurs #
+    # If error occurs during file or metadata scrubbing operation #
     except (AttributeError, IOError, Warning) as file_err:
         # Print error and return false #
         print_err(f'Error occurred attempting to scrub image metadata: {file_err}')
@@ -100,31 +97,34 @@ def main():
     filterwarnings('ignore')
 
     # If the image scrubber dir does not exist #
-    if not os.path.isdir(SCRUB_DIR):
+    if not SCRUB_DIR.exists():
         # Create the image scrubber dir #
-        os.mkdir(SCRUB_DIR)
-        print_err(f'Unable to run program because {SCRUB_DIR} was missing,'
+        SCRUB_DIR.mkdir()
+        print_err(f'Unable to run program because {SCRUB_DIR.name} was missing,'
                  ' put data to be scrubbed in it and restart')
-        sys.exit(1)
+        sys.exit(2)
 
-    print(f'\nScrubbing images in {SCRUB_DIR}:\n{"*" * (21 + (len(SCRUB_DIR)))}\n')
+    print(f'\nScrubbing images in {SCRUB_DIR.name}:\n{"*" * (21 + (len(SCRUB_DIR.name)))}\n')
 
     # Iterate through the files in the images scrubber dir #
     for file in os.scandir(SCRUB_DIR):
+        # Format file path for current iteration #
+        curr_file = SCRUB_DIR / file.name
+
         # If the current item is dir or the dummy file for git tracking #
-        if os.path.isdir(f'{SCRUB_DIR}{file.name}') or file.name == '.keep.txt':
+        if curr_file.is_dir() or file.name == '.keep.txt':
             # Skip to the next item #
             continue
 
         # If the file is a PDF #
         if file.name.endswith('.pdf'):
             # If scrubbing the PDF metadata failed #
-            if not pdf_scrub(file.name):
+            if not pdf_scrub(curr_file):
                 continue
         # If the file is a image #
         elif file.name.endswith(pic_ext):
             # If scrubbing the PDF metadata failed #
-            if not pic_scrub(file.name):
+            if not pic_scrub(curr_file):
                 continue
         # If file is not a format that has metadata #
         else:
@@ -139,4 +139,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    RET = 0
+    try:
+        main()
+
+    except Exception as ex:
+        print_err(f'Unknown exception occurred: {ex}')
+        RET = 1
+
+    sys.exit(RET)
