@@ -10,35 +10,10 @@ from pdfrw import PdfParseError, PdfReader, PdfWriter
 
 
 # Current working directory #
-cwd = Path('.')
+cwd = Path.cwd()
 # Windows scrub dock directory #
 SCRUB_DIR = cwd / 'DataScrubDock'
 
-
-def pdf_scrub(pdf_file: Path) -> bool:
-    """
-    Scrubs the metadata from the passed in PDF file name.
-
-    :param pdf_file:  The PDF file whose metadata is to be scrubbed.
-    :return:  Boolean True/False on success/fail.
-    """
-    try:
-        # Read the PDF file data #
-        pdf = PdfReader(str(pdf_file.resolve()))
-
-        # Iterate through PDF file metadata and delete it #
-        for metadata in pdf.Info:
-            del pdf.Info[metadata]
-
-        # Re-write the scrubbed PDF data back to file #
-        PdfWriter(str(pdf_file.resolve()), trailer=pdf).write()
-
-    except PdfParseError as pdf_err:
-        # Print error and return false #
-        print_err(f'Error occurred attempting to scrub PDF metadata: {pdf_err}')
-        return False
-
-    return True
 
 def pic_scrub(img_file: Path) -> bool:
     """
@@ -60,7 +35,7 @@ def pic_scrub(img_file: Path) -> bool:
             out_file.write(meta_file.get_file())
 
     # If error occurs during file or metadata scrubbing operation #
-    except (AttributeError, IOError, Warning) as file_err:
+    except (AttributeError, IOError) as file_err:
         # Print error and return false #
         print_err(f'Error occurred attempting to scrub image metadata: {file_err}')
         return False
@@ -68,6 +43,32 @@ def pic_scrub(img_file: Path) -> bool:
     # If obscure keys were unable to be scrubbed #
     except KeyError:
         pass
+
+    return True
+
+
+def pdf_scrub(pdf_path: str) -> bool:
+    """
+    Scrubs the metadata from the passed in PDF file name.
+
+    :param pdf_path:  The PDF file whose metadata is to be scrubbed.
+    :return:  Boolean True/False on success/fail.
+    """
+    try:
+        # Read the PDF file data #
+        pdf = PdfReader(pdf_path)
+
+        # Iterate through PDF file metadata and delete it #
+        for metadata in pdf.Info:
+            del pdf.Info[metadata]
+
+        # Re-write the scrubbed PDF data back to file #
+        PdfWriter(pdf_path, trailer=pdf).write()
+
+    except PdfParseError as pdf_err:
+        # Print error and return false #
+        print_err(f'Error occurred attempting to scrub PDF metadata: {pdf_err}')
+        return False
 
     return True
 
@@ -99,7 +100,7 @@ def main():
     # If the image scrubber dir does not exist #
     if not SCRUB_DIR.exists():
         # Create the image scrubber dir #
-        SCRUB_DIR.mkdir()
+        SCRUB_DIR.mkdir(parents=True)
         print_err(f'Unable to run program because {SCRUB_DIR.name} was missing,'
                  ' put data to be scrubbed in it and restart')
         sys.exit(2)
@@ -119,12 +120,16 @@ def main():
         # If the file is a PDF #
         if file.name.endswith('.pdf'):
             # If scrubbing the PDF metadata failed #
-            if not pdf_scrub(curr_file):
+            if not pdf_scrub(str(curr_file)):
+                # Add file to failures list and loop #
+                failures.append(curr_file.name)
                 continue
         # If the file is a image #
         elif file.name.endswith(pic_ext):
             # If scrubbing the PDF metadata failed #
             if not pic_scrub(curr_file):
+                # Add file to failures list and loop #
+                failures.append(curr_file.name)
                 continue
         # If file is not a format that has metadata #
         else:

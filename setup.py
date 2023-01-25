@@ -26,7 +26,7 @@ def system_cmd(cmd_args: list, timeout_secs: int):
     # Execute the pip upgrade command as child process #
     with Popen(cmd_args) as command:
         try:
-            # Timeout child process after 60 seconds #
+            # Timeout child process when timeout occurs #
             command.communicate(timeout=timeout_secs)
 
         # If error occurs during pip installation or process times out #
@@ -73,10 +73,11 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
         url = 'https://github.com/abadger/setuptools/blob/master/ez_setup.py'
         self.install_script(context, 'setuptools', url)
 
-        # clear up the setuptools archive which gets downloaded
+        # Clear up the setuptools archive which gets downloaded #
         pred = lambda o: o.startswith('setuptools-') and o.endswith('.tar.gz')
         files = filter(pred, os.listdir(context.bin_path))
 
+        # Iterate through files in bin path and delete #
         for file in files:
             file = os.path.join(context.bin_path, file)
             os.unlink(file)
@@ -100,16 +101,18 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
         """
         os.environ['VIRTUAL_ENV'] = context.env_dir
 
+        # If no setup tools #
         if not self.nodist:
             # Install setup tools #
             self.install_setuptools(context)
 
+        # If no pip and setuptools #
         if not self.nopip and not self.nodist:
-            # Install pip #
+            # Install them #
             self.install_pip(context)
 
         # Get the current working dir #
-        path = Path('.')
+        path = Path('.').absolute()
         venv_path = Path(context.env_dir)
         # Format the package path #
         package_path = path / PACKAGE_FILENAME
@@ -145,16 +148,22 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
         progress = self.progress
 
         while True:
+            # Read line from subprocess stream #
             proc_stream = stream.readline()
 
+            # If there is no more data to read #
             if not proc_stream:
                 break
 
+            # If progress has no data #
             if progress is not None:
                 progress(proc_stream, context)
+            # If progress is present #
             else:
+                # If not set to verbose #
                 if not self.verbose:
                     sys.stderr.write('.')
+                # If verbosity set #
                 else:
                     sys.stderr.write(proc_stream.decode('utf-8'))
 
@@ -178,7 +187,7 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
 
         # If the URL starts with http #
         if url.lower().startswith('http'):
-            # Download script into the virtual environment's binaries folder
+            # Download script into the virtual environment's binaries folder #
             urlretrieve(url, distpath)
         # Unusual URL detected #
         else:
@@ -192,19 +201,20 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
         else:
             term = ''
 
+        # If progress is set #
         if progress is not None:
             progress(f'Installing {name} .. {term}', 'main')
+        # If progress is not set #
         else:
             sys.stderr.write(f'Installing {name} .. {term}')
             sys.stderr.flush()
 
         args = [context.env_exe, file_name]
 
-        # Install in the virtual environment
+        # Install in the virtual environment #
         with Popen(args, stdout=PIPE, stderr=PIPE, cwd=binpath) as proc:
             thread_1 = Thread(target=self.reader, args=(proc.stdout, 'stdout'))
             thread_1.start()
-
             thread_2 = Thread(target=self.reader, args=(proc.stderr, 'stderr'))
             thread_2.start()
 
@@ -252,7 +262,7 @@ def main(args=None):
                         help='Don\'t install pip in the virtual environment.')
     parser.add_argument('--system-site-packages', default=False, action='store_true',
                         dest='system_site', help='Give the virtual environment access to the '
-                             'system site-packages dir.')
+                                                 'system site-packages dir.')
 
     if os.name == 'nt':
         use_symlinks = False
@@ -267,7 +277,7 @@ def main(args=None):
                              'already exists, before virtual environment creation.')
     parser.add_argument('--upgrade', default=False, action='store_true', dest='upgrade',
                         help='Upgrade the virtual environment directory to use this version of '
-                        'Python, assuming Python has been upgraded in-place.')
+                             'Python, assuming Python has been upgraded in-place.')
     parser.add_argument('--verbose', default=False, action='store_true', dest='verbose',
                         help='Display the output from the scripts which install setuptools and '
                              'pip.')
