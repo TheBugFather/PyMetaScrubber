@@ -51,6 +51,6 @@ This program runs on Windows 10 and Debian-based Linux, written in Python 3.9 an
 > appended to list to be displayed when the program finishes.
 
 ## Exit Codes
-> 0 - Successful operation (__main__)
-> 1 - Unexpected exception occurred (__main__)
+> 0 - Successful operation (__main__) <br>
+> 1 - Unexpected exception occurred (__main__) <br>
 > 2 - ScrubDirectory dock for data to be scrubbed does not exist (main)
