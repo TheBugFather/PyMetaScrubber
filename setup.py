@@ -5,39 +5,40 @@ import os
 import sys
 import venv
 from pathlib import Path
-from subprocess import Popen, PIPE, TimeoutExpired, CalledProcessError
+from subprocess import Popen, PIPE, TimeoutExpired
 from threading import Thread
 from urllib.parse import urlparse
 from urllib.request import urlretrieve
 
 
-# Global variables #
 PACKAGE_FILENAME = 'packages.txt'
 
 
-def system_cmd(cmd_args: list, timeout_secs: int):
+def system_cmd(cmd: list, exec_time):
     """
-    Executes a system command as a child subprocess.
+    Executes system shell command and returns the output. If improper data type is in command syntax
+    list or error occurs during command execution, the error is displayed via stderr and logged,
+    and False is returned to indicated failed operation.
 
-    :param cmd_args:  The list of command-line args to be executed.
-    :param timeout_secs:  The execution timeout after process hangs too long.
+    :param cmd:  The command to be executed.
+    :param exec_time:  The execution timeout to prevent process hangs.
     :return:  Nothing
     """
-    # Execute the pip upgrade command as child process #
-    with Popen(cmd_args) as command:
-        try:
-            # Timeout child process when timeout occurs #
-            command.communicate(timeout=timeout_secs)
+    try:
+        # Set up child process in context manager, piping output & errors to return variables #
+        with Popen(cmd, stdout=sys.stdout, stderr=sys.stderr) as command:
+            # Execute process for passed in timeout (None=blocking) #
+            command.communicate(timeout=exec_time)
 
-        # If error occurs during pip installation or process times out #
-        except (TimeoutExpired, CalledProcessError, OSError, ValueError) as proc_err:
-            command.kill()
-            command.communicate()
+    # If the process times out #
+    except TimeoutExpired:
+        # Print error and log #
+        print_err(f'Process for {cmd} timed out before finishing execution')
 
-            # If the exception is a error that should be looked into #
-            if not TimeoutExpired:
-                print_err(f'Error occurred during child process execution: {proc_err}')
-                sys.exit(3)
+    # If the input command has data other than string #
+    except TypeError:
+        # Print error and log #
+        print_err(f'Input in {cmd} contains data type other than string')
 
 
 class ExtendedEnvBuilder(venv.EnvBuilder):
@@ -112,7 +113,7 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
             self.install_pip(context)
 
         # Get the current working dir #
-        path = Path('.').absolute()
+        path = Path.cwd()
         venv_path = Path(context.env_dir)
         # Format the package path #
         package_path = path / PACKAGE_FILENAME
@@ -127,13 +128,13 @@ class ExtendedEnvBuilder(venv.EnvBuilder):
             pip_path = venv_path / 'bin' / 'pip'
 
         # Execute the pip upgrade command as child process #
-        command = [str(pip_path.resolve()), 'install', '--upgrade', 'pip']
+        command = [str(pip_path), 'install', '--upgrade', 'pip']
         system_cmd(command, 60)
 
         # If the package list file exists #
         if package_path.exists():
             # Execute pip -r into venv based on package list #
-            command = [str(pip_path.resolve()), 'install', '-r', str(package_path.resolve())]
+            command = [str(pip_path), 'install', '-r', str(package_path)]
             system_cmd(command, 300)
 
     def reader(self, stream, context):
@@ -262,7 +263,7 @@ def main(args=None):
                         help='Don\'t install pip in the virtual environment.')
     parser.add_argument('--system-site-packages', default=False, action='store_true',
                         dest='system_site', help='Give the virtual environment access to the '
-                                                 'system site-packages dir.')
+                             'system site-packages dir.')
 
     if os.name == 'nt':
         use_symlinks = False
@@ -277,7 +278,7 @@ def main(args=None):
                              'already exists, before virtual environment creation.')
     parser.add_argument('--upgrade', default=False, action='store_true', dest='upgrade',
                         help='Upgrade the virtual environment directory to use this version of '
-                             'Python, assuming Python has been upgraded in-place.')
+                        'Python, assuming Python has been upgraded in-place.')
     parser.add_argument('--verbose', default=False, action='store_true', dest='verbose',
                         help='Display the output from the scripts which install setuptools and '
                              'pip.')
